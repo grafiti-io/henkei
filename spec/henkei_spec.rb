@@ -2,6 +2,7 @@
 
 require 'helper.rb'
 require 'henkei'
+require 'tempfile'
 
 describe Henkei do
   let(:data) { File.read 'spec/samples/sample.docx' }
@@ -48,6 +49,23 @@ describe Henkei do
         text = Henkei.read :text, data
 
         expect(text).to eq ''
+      end
+    end
+
+    context 'when passing in the `actually-a-doc.jpg` test file' do
+      let(:data) { File.read 'spec/samples/actually-a-doc.jpg' }
+
+      it 'returns document content' do
+        text = Henkei.read :text, data
+
+        expect(text.strip).to start_with 'This is an amazing document created in pages'
+      end
+
+      it 'reads mimetype' do
+        mimetype = Henkei.read :mimetype, data
+
+        expect(mimetype.content_type).to eq 'application/msword'
+        expect(mimetype.extensions).to contain_exactly 'doc', 'dot', 'wrd'
       end
     end
   end
@@ -152,7 +170,7 @@ describe Henkei do
         expect(henkei.html).to include '<meta name="tiff:ImageWidth" content="792"/>'
       end
 
-      it '#mimetype returns an empty result' do
+      it '#mimetype returns `image/png`' do
         expect(henkei.mimetype.content_type).to eq 'image/png'
       end
     end
@@ -181,6 +199,23 @@ describe Henkei do
 
     specify '#metadata reads metadata' do
       expect(henkei.metadata['Content-Type']).to eq %w[application/vnd.apple.pages application/vnd.apple.pages]
+    end
+  end
+
+  context 'initialized with a ASCII encoded Tempfile' do
+    let(:henkei) { Henkei.new tempfile }
+    let(:tempfile) do
+      File.open('spec/samples/actually-a-doc.jpg', 'r') do |source|
+        Tempfile.new(%w[sample .pages], encoding: 'ascii-8bit').tap { |dest| IO.copy_stream source, dest }.tap(&:open)
+      end
+    end
+
+    specify '#text reads text' do
+      expect(henkei.text).to include 'Data in the middle of a table'
+    end
+
+    specify '#metadata reads metadata' do
+      expect(henkei.metadata['Content-Type']).to eq 'application/msword'
     end
   end
 
