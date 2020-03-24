@@ -117,6 +117,10 @@ class Henkei # rubocop:disable Metrics/ClassLength
     @mimetype = MIME::Types[type].first
   end
 
+  def password_protected?
+    Open3.capture3(tika_command(:text), stdin_data: data, binmode: true).[1].include? "org.apache.tika.exception.EncryptedDocumentException"
+  end
+
   # Returns +true+ if the Henkei document was specified using a file path.
   #
   #   henkei = Henkei.new 'sample.pages'
