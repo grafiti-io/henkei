@@ -118,7 +118,13 @@ class Henkei # rubocop:disable Metrics/ClassLength
   end
 
   def password_protected?
-    Open3.capture3(Henkei.tika_command(:text), stdin_data: data, binmode: true)[1].include? "org.apache.tika.exception.EncryptedDocumentException"
+    return @is_password_protected if defined? @is_password_protected
+
+    @is_password_protected = Henkei.password_protected?(data)
+  end
+
+  def self.password_protected?(data)
+    Open3.capture3(tika_command(:text), stdin_data: data, binmode: true)[1].include? "org.apache.tika.exception.EncryptedDocumentException"
   end
 
   # Returns +true+ if the Henkei document was specified using a file path.
