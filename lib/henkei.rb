@@ -227,6 +227,16 @@ class Henkei # rubocop:disable Metrics/ClassLength
     @@server_port = nil
   end
 
+  class JavaExceptionThrownError < StandardError
+    attr_reader :java_exception_msg, :method_name
+
+    def initialize(java_exception_msg, method_name=nil)
+      @java_exception_msg = java_exception_msg
+      @method_name = method_name
+      super("Java Exception while running method: #{method_name}")
+    end
+  end
+
   ### Private class methods
 
   # Provide the path to the Java binary
@@ -296,14 +306,4 @@ class Henkei # rubocop:disable Metrics/ClassLength
     end
   end
   private_class_method :switch_for_type
-
-  class JavaExceptionThrownError < StandardError
-    attr_reader :java_exception_msg, :method_name
-
-    def initialize(java_exception_msg, method_name=nil)
-      @java_exception_msg = java_exception_msg
-      @method_name = method_name
-      super("Java Exception while running method: #{method_name}")
-    end
-  end
 end
