@@ -30,13 +30,16 @@ class Henkei # rubocop:disable Metrics/ClassLength
   #   metadata = Henkei.read :metadata, data
   #
   def self.read(type, data)
-    result = @@server_pid ? server_read(data) : client_read(type, data)
+    result, stderr, status = @@server_pid ? server_read(data) : client_read(type, data)
+
+    # Throw custom exception when the command fails to execute
+    unless status.success? raise JavaExceptionThrownError.new(stderr, type)
 
     case type
     when :text then result
     when :html then result
-    when :metadata then JSON.parse(result)
-    when :mimetype then MIME::Types[JSON.parse(result)['Content-Type']].first
+    when :metadata then result.present? ? JSON.parse(result) : nil
+    when :mimetype then result.present? ? MIME::Types[JSON.parse(result)['Content-Type']].first : nil
     end
   end
 
@@ -236,7 +239,12 @@ class Henkei # rubocop:disable Metrics/ClassLength
   # Internal helper for calling to Tika library directly
   #
   def self.client_read(type, data)
-    Open3.capture2(tika_command(type), stdin_data: data, binmode: true).first
+    # Use `capture3` instead of `capture2` and return all the objects from the method execution (stdout, stderr and status).
+    # The idea is to be able to asses, handle and even raise errors based on Java Exceptions thrown from tika, also
+    # prevent `JSON::ParserError` throwed by `self.read` due to trying to parse empty strings resulting from said Java Exceptions
+    # not being properly handled.
+    Open3.capture3(tika_command(type), stdin_data: data, binmode: true)
+    # Open3.capture2(tika_command(type), stdin_data: data, binmode: true).first
   end
   private_class_method :client_read
 
@@ -288,4 +296,14 @@ class Henkei # rubocop:disable Metrics/ClassLength
     end
   end
   private_class_method :switch_for_type
+
+  class JavaExceptionThrownError < StandardError
+    attr_reader :java_exception_msg, :method_name
+
+    def initialize(java_exception_msg, method_name=nil)
+      @java_exception_msg = java_exception_msg
+      @method_name = method_name
+      super("Java Exception while running method: #{method_name}")
+    end
+  end
 end
