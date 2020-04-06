@@ -33,13 +33,13 @@ class Henkei # rubocop:disable Metrics/ClassLength
     result, stderr, status = @@server_pid ? server_read(data) : client_read(type, data)
 
     # Throw custom exception when the command fails to execute
-    raise JavaExceptionThrownError.new(stderr, type) unless status.success?
+    raise JavaExceptionThrownError.new(stderr, result, type, status) unless status.success?
 
     case type
     when :text then result
     when :html then result
-    when :metadata then result.present? ? JSON.parse(result) : nil
-    when :mimetype then result.present? ? MIME::Types[JSON.parse(result)['Content-Type']].first : nil
+    when :metadata then JSON.parse(result)
+    when :mimetype then MIME::Types[JSON.parse(result)['Content-Type']].first
     end
   end
 
@@ -298,11 +298,13 @@ class Henkei # rubocop:disable Metrics/ClassLength
   private_class_method :switch_for_type
 
   class JavaExceptionThrownError < StandardError
-    attr_reader :java_exception_msg, :method_name
+    attr_reader :java_exception_msg, :method_name, :status, :stdout
 
-    def initialize(java_exception_msg, method_name=nil)
+    def initialize(java_exception_msg, stdout=nil, method_name=nil, status=nil)
       @java_exception_msg = java_exception_msg
+      @stdout = stdout
       @method_name = method_name
+      @status = status
       super("Java Exception while running method: #{method_name}")
     end
   end
